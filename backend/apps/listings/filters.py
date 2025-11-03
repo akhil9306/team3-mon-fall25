@@ -12,8 +12,8 @@ class ListingFilter(django_filters.FilterSet):
     # method-based filters
     min_price = django_filters.NumberFilter(method='filter_min_price')
     max_price = django_filters.NumberFilter(method='filter_max_price')
-    location = django_filters.CharFilter(field_name='location', lookup_expr='icontains')
-    category = django_filters.CharFilter(field_name='category', lookup_expr='iexact')
+    location = django_filters.CharFilter(method='filter_location')
+    category = django_filters.CharFilter(method='filter_category')
     posted_within = django_filters.NumberFilter(method='filter_posted_within')
 
     class Meta:
@@ -64,9 +64,34 @@ class ListingFilter(django_filters.FilterSet):
             days = int(value)
         except (TypeError, ValueError):
             raise ValidationError({"posted_within": ["Must be one of 1, 7, 30."]})
-        
+
         if days not in {1, 7, 30}:
             raise ValidationError({"posted_within": ["Must be one of 1, 7, 30."]})
-        
+
         since = timezone.now() - timedelta(days=days)
         return queryset.filter(created_at__gte=since)
+
+    def filter_category(self, queryset, name, value):
+        """
+        Support comma-separated multiple categories.
+        Usage: ?category=Electronics,Books,Furniture
+        """
+        if not value:
+            return queryset
+        categories = [c.strip() for c in value.split(',') if c.strip()]
+        if not categories:
+            return queryset
+        return queryset.filter(category__in=categories)
+
+    def filter_location(self, queryset, name, value):
+        """
+        Support comma-separated multiple locations.
+        Usage: ?location=Othmer Hall,Clark Hall
+        """
+        if not value:
+            return queryset
+        locations = [loc.strip() for loc in value.split(',') if loc.strip()]
+        if not locations:
+            return queryset
+        # Use __in for exact matches on multiple locations
+        return queryset.filter(location__in=locations)

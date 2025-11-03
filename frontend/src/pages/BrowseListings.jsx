@@ -41,8 +41,8 @@ export default function BrowseListings() {
   const page = Math.max(1, Number(params.get("page") ?? 1));
 
   const initialFiltersFromUrl = {
-    category: params.get("category") ?? "",
-    location: params.get("location") ?? "",
+    categories: params.get("categories")?.split(",").filter(Boolean) || [],
+    dorms: params.get("dorms")?.split(",").filter(Boolean) || [],
     dateRange: params.get("dateRange") ?? "",
     priceMin: params.get("min_price") ?? "",
     priceMax: params.get("max_price") ?? "",
@@ -71,9 +71,17 @@ export default function BrowseListings() {
     } else {
       next.set("page", "1");
     }
-    // filters
-    if (nextFilters.category) next.set("category", nextFilters.category); else next.delete("category");
-    if (nextFilters.location) next.set("location", nextFilters.location); else next.delete("location");
+    // filters - handle arrays (categories and dorms)
+    if (nextFilters.categories?.length > 0) {
+      next.set("categories", nextFilters.categories.join(","));
+    } else {
+      next.delete("categories");
+    }
+    if (nextFilters.dorms?.length > 0) {
+      next.set("dorms", nextFilters.dorms.join(","));
+    } else {
+      next.delete("dorms");
+    }
     if (nextFilters.priceMin !== "" && nextFilters.priceMin != null) next.set("min_price", nextFilters.priceMin); else next.delete("min_price");
     if (nextFilters.priceMax !== "" && nextFilters.priceMax != null) next.set("max_price", nextFilters.priceMax); else next.delete("max_price");
     if (nextFilters.dateRange) next.set("dateRange", nextFilters.dateRange); else next.delete("dateRange");
@@ -85,8 +93,8 @@ export default function BrowseListings() {
   // When URL changes externally (e.g., back/forward), update state
   useEffect(() => {
     setFilters({
-      category: params.get("category") ?? "",
-      location: params.get("location") ?? "",
+      categories: params.get("categories")?.split(",").filter(Boolean) || [],
+      dorms: params.get("dorms")?.split(",").filter(Boolean) || [],
       dateRange: params.get("dateRange") ?? "",
       priceMin: params.get("min_price") ?? "",
       priceMax: params.get("max_price") ?? "",
@@ -112,8 +120,14 @@ export default function BrowseListings() {
         apiParams.ordering = sortToOrdering(sort);
 
         // filters → backend params
-        if (filters.category) apiParams.category = filters.category;
-        if (filters.location) apiParams.location = filters.location;
+        // Map categories array to comma-separated string for backend
+        if (filters.categories?.length > 0) {
+          apiParams.category = filters.categories.join(",");
+        }
+        // Map dorms array to location parameter as comma-separated string
+        if (filters.dorms?.length > 0) {
+          apiParams.location = filters.dorms.join(",");
+        }
         if (filters.priceMin !== "" && filters.priceMin != null) apiParams.min_price = filters.priceMin;
         if (filters.priceMax !== "" && filters.priceMax != null) apiParams.max_price = filters.priceMax;
         if (filters.dateRange) {
@@ -121,13 +135,6 @@ export default function BrowseListings() {
           if (postedWithin !== undefined) apiParams.posted_within = postedWithin;
         }
         if (filters.availableOnly) apiParams.available_only = true;
-
-        // Add extra filter fields if present (for extensibility)
-        Object.keys(filters).forEach((key) => {
-          if (!(key in apiParams) && filters[key] !== "" && filters[key] != null) {
-            apiParams[key] = filters[key];
-          }
-        });
 
         // pagination
         apiParams.page = page;
